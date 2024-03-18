@@ -23,7 +23,7 @@ CONN_STR_PG = {
 }
 
 # Define constants
-MODELS_FOLDER_ID = '01eca701-b053-4e94-94b6-1b2a9567bbf1'
+MODELS_FOLDER_ID = '52f88791-fd6e-4c41-8442-4f3ce8a6af71'
 ALGORITHMS = ['Weka', 'MLlib', 'Scikit-learn', 'R', 'Python']
 ML_CATEGORIES = range(1, 6)
 ERROR_TYPES = ['Invalid Argument: Incompatible shapes', 'Non Numeric Data',
@@ -114,8 +114,31 @@ def insert_cms_item(cursor, ml_model_name, model_id):
                            MODELS_FOLDER_ID, None, 1, None, None))
 
 def insert_tags(cursor, model_id, tags):
-    pass
+    query0 = """
+    SELECT tag_id FROM content_tbl_tag WHERE tag_description = ?
+    """
+    query1 = """
+        INSERT INTO content_tbl_tag
+        (tag_id, created_date, created_by, tag_description, tag_type)
+        VALUES(?, ?, ?, ?, ?)        
+    """
+    query2 = """
+        INSERT INTO content_tbl_tag_usage
+        (id, item_id, tag_id)
+        VALUES(?, ?, ?)        
+    """
 
+    for tag in tags:
+        cursor.execute(query0, (tag))
+        record = cursor.fetchone()
+        if record is not None:
+            tag_id = record[0]
+        else:
+            tag_id = generate_uuid()
+            cursor.execute(query1, (tag_id, '2023-12-31 14:49:32.920', '17398184-6c03-4bfe-ad82-ebfb02dd3d10', tag, 0))
+
+        tag_usage_id = generate_uuid()
+        cursor.execute(query2, (tag_usage_id, model_id, tag_id))
 
 
 
@@ -202,7 +225,8 @@ def truncate_tables(cursor):
         "dsw_staged_models",
         "ml_model_usage",
         "prediction_count",
-        "prediction_error"
+        "prediction_error",
+        "content_tbl_tag"
     ]
 
     for table in tables:
