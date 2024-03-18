@@ -1,6 +1,7 @@
 import pyodbc
 import uuid
 import random
+import math
 from datetime import datetime
 from collections import namedtuple
 
@@ -94,6 +95,7 @@ def create_staged_models(cursor, num_models=20):
 
         insert_dsw_staged_model(cursor, staged_model)
         insert_cms_item(cursor, ml_model_name, model_id)
+        insert_tags(cursor, model_id, generate_tags(algo_engine))
 
     return staged_models
 
@@ -111,11 +113,16 @@ def insert_cms_item(cursor, ml_model_name, model_id):
                            '2023-12-31 14:49:32.920', ml_model_name, '2023.11.038', None,
                            MODELS_FOLDER_ID, None, 1, None, None))
 
+def insert_tags(cursor, model_id, tags):
+    pass
+
+
+
 
 def insert_dsw_staged_model(cursor, staged_model):
     query = """
         INSERT INTO dsw_staged_models 
-        (id, execution_id, lab_id, lab_name, ml_model_name, algo_engine, algo_version_name, algo_config_id,
+        (id, execution_id, lab_id, lab_name, algo_engine, ml_model_name, algo_version_name, algo_config_id,
         ml_category, data_model_name, server_id, db_name, accuracy, total_number_of_instances, lab_execution_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
@@ -187,10 +194,29 @@ def insert_prediction_errors(cursor, staged_model_id):
     return prediction_errors
 
 
+def truncate_tables(cursor):
+    """
+    Truncates specific tables involved in the data population script.
+    """
+    tables = [
+        "dsw_staged_models",
+        "ml_model_usage",
+        "prediction_count",
+        "prediction_error"
+    ]
+
+    for table in tables:
+        query = f"TRUNCATE TABLE {table}"
+        cursor.execute(query)
+
+    cursor.execute("DELETE FROM content_tbl_item WHERE item_type=10")
+
+
 def main():
     cursor = connect_to_db()
 
     try:
+        truncate_tables(cursor)
         staged_models = create_staged_models(cursor)
         for staged_model in staged_models:
             insert_ml_model_usage(cursor, staged_model.model_id)
@@ -206,7 +232,6 @@ def main():
 
     finally:
         cursor.close()
-
 
 if __name__ == "__main__":
     main()
